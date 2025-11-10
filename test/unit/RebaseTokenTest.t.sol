@@ -6,7 +6,7 @@ import {CodeConstants} from "../../script/HelperConfig.s.sol";
 import {RebaseToken} from "../../src/RebaseToken.sol";
 import {Test, console} from "forge-std/Test.sol";
 
-contract RebaseTest is Test, CodeConstants {
+contract RebaseTokenTest is Test, CodeConstants {
     RebaseToken public rbt;
     uint256 constant HIGHER_INTEREST_RATE = 9e10;
 
