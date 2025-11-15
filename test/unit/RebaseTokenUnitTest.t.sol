@@ -29,8 +29,8 @@ contract RebaseTokenTest is Test, CodeConstants {
 
     modifier userMinted() {
         rbt.grantMintAndBurnRole(address(this));
-        rbt.mint(user1, MINT_AMOUNT);
-        rbt.mint(user2, MINT_AMOUNT);
+        rbt.mint(user1, MINT_AMOUNT, rbt.getUserInterestRate(user1));
+        rbt.mint(user2, MINT_AMOUNT, rbt.getUserInterestRate(user2));
         _;
     }
 
@@ -58,11 +58,12 @@ contract RebaseTokenTest is Test, CodeConstants {
     //////////////////////////////////////////////////////////////*/
 
     function testMintRevertsWithoutRole() external {
+        uint256 userInterestRate = rbt.getUserInterestRate(user1);
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user1, MINT_AND_BURN_ROLE)
         );
         vm.prank(user1);
-        rbt.mint(user1, MINT_AMOUNT);
+        rbt.mint(user1, MINT_AMOUNT, userInterestRate);
     }
 
     function testMintAccruesInterestLinearly() external userMinted {
@@ -92,7 +93,7 @@ contract RebaseTokenTest is Test, CodeConstants {
         assertEq(startingUserTimeStamp, 0);
         uint256 expectedTimestamp = block.timestamp;
         vm.prank(user1);
-        rbt.mint(user1, MINT_AMOUNT);
+        rbt.mint(user1, MINT_AMOUNT, startingUserInterestRate);
         (
             uint256 endingUserInterestRate,
             uint256 endingUserTimeStamp,
@@ -119,7 +120,7 @@ contract RebaseTokenTest is Test, CodeConstants {
         vm.expectEmit(true, true, false, false, address(rbt));
         emit Transfer(address(0), user1, MINT_AMOUNT);
         vm.prank(user1);
-        rbt.mint(user1, MINT_AMOUNT);
+        rbt.mint(user1, MINT_AMOUNT, rbt.getUserInterestRate(user1));
         (,, uint256 endingPrincipalBalance, uint256 endingTotalBalance) = _getAllInfoForUser(user1);
         assertEq(startingPrincipalBalance + expectedInterest + MINT_AMOUNT, endingPrincipalBalance);
         assertEq(endingPrincipalBalance, endingTotalBalance);

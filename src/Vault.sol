@@ -46,7 +46,7 @@ contract Vault {
      * @notice Deposit an amount of ETH to mint rebase tokens (RBT)
      */
     function deposit() external payable {
-        i_rbt.mint(msg.sender, msg.value);
+        i_rbt.mint(msg.sender, msg.value, i_rbt.getUserInterestRate(msg.sender));
         emit Deposit(msg.sender, msg.value);
     }
 

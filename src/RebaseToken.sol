@@ -68,9 +68,12 @@ contract RebaseToken is ERC20, Ownable, AccessControl, IRebaseToken {
      * @param _amount Amount of RBT tokens to mint
      * @dev Only callable from address with mint and burn permissions
      */
-    function mint(address _to, uint256 _amount) external onlyRole(MINT_AND_BURN_ROLE) {
+    function mint(address _to, uint256 _amount, uint256 _userInterestRate) external onlyRole(MINT_AND_BURN_ROLE) {
         _mintAccruedInterest(_to);
-        s_userInterestRate[_to] = s_globalInterestRate;
+        if (_userInterestRate == 0) {
+            _userInterestRate = s_globalInterestRate;
+        }
+        s_userInterestRate[_to] = _userInterestRate;
         _mint(_to, _amount);
     }
 
