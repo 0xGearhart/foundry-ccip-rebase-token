@@ -12,7 +12,7 @@ clean  :; forge clean
 # Remove modules
 remove :; rm -rf .gitmodules && rm -rf .git/modules/* && rm -rf lib && touch .gitmodules && git add . && git commit -m "modules"
 
-install :; forge install cyfrin/foundry-devops@0.4.0 && forge install foundry-rs/forge-std@v1.11.0 && forge install openzeppelin/openzeppelin-contracts@v5.5.0 && npm install @chainlink/contracts-ccip@1.6.3
+install :; forge install cyfrin/foundry-devops@0.4.0 && forge install foundry-rs/forge-std@v1.11.0 && forge install openzeppelin/openzeppelin-contracts@v5.5.0 && forge install smartcontractkit/chainlink-local@v0.2.7-beta && npm install @chainlink/contracts-ccip@1.6.3
 
 # Update Dependencies
 update:; forge update
