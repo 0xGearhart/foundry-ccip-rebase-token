@@ -69,7 +69,13 @@ contract RebaseToken is ERC20, Ownable, AccessControl, IRebaseToken {
      * @dev Only callable from address with mint and burn permissions
      */
     function mint(address _to, uint256 _amount, uint256 _userInterestRate) external onlyRole(MINT_AND_BURN_ROLE) {
-        _mintAccruedInterest(_to);
+        // Only mint accrued interest if user has a prior balance
+        if (super.balanceOf(_to) > 0) {
+            _mintAccruedInterest(_to);
+        } else {
+            // Initialize timestamp for new users to avoid expensive calculations
+            s_userUpdatedAt[_to] = block.timestamp;
+        }
         if (_userInterestRate == 0) {
             _userInterestRate = s_globalInterestRate;
         }
