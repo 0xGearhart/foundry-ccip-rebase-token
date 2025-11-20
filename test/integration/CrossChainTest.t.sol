@@ -8,15 +8,17 @@ import {CodeConstants, HelperConfig} from "../../script/HelperConfig.s.sol";
 
 // contracts to test
 import {RebaseToken} from "../../src/RebaseToken.sol";
-import {RebaseTokenPool, TokenPool, RateLimiter} from "../../src/RebaseTokenPool.sol";
+import {RebaseTokenPool, TokenPool} from "../../src/RebaseTokenPool.sol";
 import {Vault} from "../../src/Vault.sol";
 
 // CCIP local testing infrastructure
+import {IRouterClient} from "@chainlink/contracts-ccip/contracts/interfaces/IRouterClient.sol";
+import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
+import {RateLimiter} from "@chainlink/contracts-ccip/contracts/libraries/RateLimiter.sol";
 import {
     RegistryModuleOwnerCustom
 } from "@chainlink/contracts-ccip/contracts/tokenAdminRegistry/RegistryModuleOwnerCustom.sol";
 import {TokenAdminRegistry} from "@chainlink/contracts-ccip/contracts/tokenAdminRegistry/TokenAdminRegistry.sol";
-import {IRouterClient} from "@chainlink/local/lib/chainlink-ccip/chains/evm/contracts/interfaces/IRouterClient.sol";
 import {BurnMintERC677Helper} from "@chainlink/local/src/ccip/BurnMintERC677Helper.sol";
 import {CCIPLocalSimulatorFork, Register} from "@chainlink/local/src/ccip/CCIPLocalSimulatorFork.sol";
 import {IERC20} from "@openzeppelin/contracts@4.8.3/token/ERC20/IERC20.sol";
@@ -30,16 +32,17 @@ contract CrossChainTest is Test, CodeConstants {
     RebaseTokenPool arbSepoliaRbtPool;
     Vault vault;
 
-    IRouterClient sourceRouter;
-    BurnMintERC677Helper sourceCCIPBnMToken;
-    BurnMintERC677Helper destinationCCIPBnMToken;
-    IERC20 sourceLinkToken;
-    uint64 destinationChainSelector;
+    Register.NetworkDetails sourceNetworkDetails;
+    Register.NetworkDetails destinationNetworkDetails;
 
     uint256 sourceFork;
     uint256 destinationFork;
+
+    // blank address array for allowlist to indicate anyone can use the bridge
     address[] allowList;
     address owner = makeAddr("owner");
+    address user1 = makeAddr("user1");
+    uint256 constant SEND_AMOUNT = 1e5;
 
     function setUp() public {
         // create desired chain forks
@@ -53,14 +56,10 @@ contract CrossChainTest is Test, CodeConstants {
         // deploy CCIP local simulation contracts and make their addresses the same (persistent) across chains
         ccipLocalSimulatorFork = new CCIPLocalSimulatorFork();
         vm.makePersistent(address(ccipLocalSimulatorFork));
-
         // deploy contracts and configure CCIP on ETH Sepolia
         vm.startPrank(owner);
-        // chainlink CCIP local testing set up for source chain
-        Register.NetworkDetails memory sourceNetworkDetails = ccipLocalSimulatorFork.getNetworkDetails(block.chainid);
-        sourceCCIPBnMToken = BurnMintERC677Helper(sourceNetworkDetails.ccipBnMAddress);
-        sourceLinkToken = IERC20(sourceNetworkDetails.linkAddress);
-        sourceRouter = IRouterClient(sourceNetworkDetails.routerAddress);
+        // chainlink CCIP network details for source chain
+        sourceNetworkDetails = ccipLocalSimulatorFork.getNetworkDetails(block.chainid);
         // deploy RBT, RBT Pool and Vault contracts on source chain
         ethSepoliaRbt = new RebaseToken(RBT_NAME, RBT_SYMBOL, INITIAL_INTEREST_RATE);
         vault = new Vault(ethSepoliaRbt);
@@ -71,7 +70,7 @@ contract CrossChainTest is Test, CodeConstants {
             sourceNetworkDetails.rmnProxyAddress,
             sourceNetworkDetails.routerAddress
         );
-        // grand MINT_AND_BURN role to vault and pool
+        // grant MINT_AND_BURN role to vault and pool
         ethSepoliaRbt.grantMintAndBurnRole(address(vault));
         ethSepoliaRbt.grantMintAndBurnRole(address(ethSepoliaRbtPool));
         // grant appropriate chainlink CCIP admin, permissions, and roles
@@ -86,11 +85,8 @@ contract CrossChainTest is Test, CodeConstants {
         vm.selectFork(destinationFork);
         // deploy contracts and configure CCIP on ARB sepolia
         vm.startPrank(owner);
-        // chainlink CCIP local testing set up for destination chain
-        Register.NetworkDetails memory destinationNetworkDetails =
-            ccipLocalSimulatorFork.getNetworkDetails(block.chainid);
-        destinationCCIPBnMToken = BurnMintERC677Helper(destinationNetworkDetails.ccipBnMAddress);
-        destinationChainSelector = destinationNetworkDetails.chainSelector;
+        // chainlink CCIP network details for destination chain
+        destinationNetworkDetails = ccipLocalSimulatorFork.getNetworkDetails(block.chainid);
         // deploy RBT and RBT Pool contracts on destination chain
         arbSepoliaRbt = new RebaseToken(RBT_NAME, RBT_SYMBOL, INITIAL_INTEREST_RATE);
         arbSepoliaRbtPool = new RebaseTokenPool(
@@ -100,7 +96,7 @@ contract CrossChainTest is Test, CodeConstants {
             destinationNetworkDetails.rmnProxyAddress,
             destinationNetworkDetails.routerAddress
         );
-        // grand MINT_AND_BURN role to pool
+        // grant MINT_AND_BURN role to pool
         arbSepoliaRbt.grantMintAndBurnRole(address(arbSepoliaRbtPool));
         // grant appropriate chainlink CCIP admin, permissions, and roles
         RegistryModuleOwnerCustom(destinationNetworkDetails.registryModuleOwnerCustomAddress)
@@ -108,41 +104,170 @@ contract CrossChainTest is Test, CodeConstants {
         TokenAdminRegistry(destinationNetworkDetails.tokenAdminRegistryAddress).acceptAdminRole(address(arbSepoliaRbt));
         TokenAdminRegistry(destinationNetworkDetails.tokenAdminRegistryAddress)
             .setPool(address(arbSepoliaRbt), address(arbSepoliaRbtPool));
-        
-        // configure both pools
-        configureTokenPool(sourceFork, address(ethSepoliaRbtPool), destinationNetworkDetails.chainSelector, address(arbSepoliaRbtPool), address(arbSepoliaRbt));
-        configureTokenPool(destinationFork, address(arbSepoliaRbtPool), sourceNetworkDetails.chainSelector, address(ethSepoliaRbtPool), address(ethSepoliaRbt));
         vm.stopPrank();
+
+        // configure both pools
+        configureTokenPool(
+            sourceFork,
+            address(ethSepoliaRbtPool),
+            destinationNetworkDetails.chainSelector,
+            address(arbSepoliaRbtPool),
+            address(arbSepoliaRbt)
+        );
+        configureTokenPool(
+            destinationFork,
+            address(arbSepoliaRbtPool),
+            sourceNetworkDetails.chainSelector,
+            address(ethSepoliaRbtPool),
+            address(ethSepoliaRbt)
+        );
     }
 
-    function configureTokenPool(uint256 _fork, address _localPool, uint64 _remoteChainSelector, address _remotePool, address _remoteTokenAddress) public {
+    function configureTokenPool(
+        uint256 _fork,
+        address _localPool,
+        uint64 _remoteChainSelector,
+        address _remotePool,
+        address _remoteTokenAddress
+    )
+        public
+    {
         vm.selectFork(_fork);
-        bytes[] memory _remotePoolAddresses = new bytes[](1);
-        _remotePoolAddresses[0] = abi.encode(_remotePool)
+        // build array of remote pool addresses in byte format
+        bytes[] memory remotePoolAddresses = new bytes[](1);
+        // encode remote pool address for bytes array
+        remotePoolAddresses[0] = abi.encode(_remotePool);
+        // initialize array of ChainUpdateStructs
         TokenPool.ChainUpdate[] memory chainsToAdd = new TokenPool.ChainUpdate[](1);
-        // struct ChainUpdate {
-        //     uint64 remoteChainSelector; // Remote chain selector
-        //     bytes[] remotePoolAddresses; // Address of the remote pool, ABI encoded in the case of a remote EVM chain.
-        //     bytes remoteTokenAddress; // Address of the remote token, ABI encoded in the case of a remote EVM chain.
-        //     RateLimiter.Config outboundRateLimiterConfig; // Outbound rate limited config, meaning the rate limits for all of the onRamps for the given chain
-        //     RateLimiter.Config inboundRateLimiterConfig; // Inbound rate limited config, meaning the rate limits for all of the offRamps for the given chain
-        // }
+        // build Chain Update struct
         chainsToAdd[0] = TokenPool.ChainUpdate({
             remoteChainSelector: _remoteChainSelector,
-            remotePoolAddresses: _remotePoolAddresses,
+            remotePoolAddresses: remotePoolAddresses,
             remoteTokenAddress: abi.encode(_remoteTokenAddress),
-            outboundRateLimiterConfig: RateLimiter.Config({
-                isEnabled: false,
-                capacity: 0,
-                rate: 0
-            }),
-            inboundRateLimiterConfig: RateLimiter.Config({
-                isEnabled: false,
-                capacity: 0,
-                rate: 0
-            })
+            outboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0}),
+            inboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0})
         });
+        // build array of chains to remove
+        uint64[] memory chainsToRemove;
+        // add and remove necessary chains for TokenPool
         vm.prank(owner);
-        TokenPool(_localPool).applyChainUpdates(new uint64[](0), chainsToAdd);
+        TokenPool(_localPool).applyChainUpdates(chainsToRemove, chainsToAdd);
     }
+
+    function bridgeTokens(
+        uint256 _amountToBridge,
+        uint256 _localFork,
+        uint256 _remoteFork,
+        Register.NetworkDetails memory _localNetworkDetails,
+        Register.NetworkDetails memory _remoteNetworkDetails,
+        RebaseToken _localToken,
+        RebaseToken _remoteToken
+    )
+        public
+    {
+        // select fork we are sending from (local)
+        vm.selectFork(_localFork);
+        // build tokenAmounts array of EVMTokenAmount structs
+        Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
+        tokenAmounts[0] = Client.EVMTokenAmount({token: address(_localToken), amount: _amountToBridge});
+        // build EVM2AnyMessage cross chain message struct
+        Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
+            receiver: abi.encode(user1), // bytes receiver: abi.encode(receiver address) for dest EVM chains.
+            data: "", // bytes data: Data payload.
+            tokenAmounts: tokenAmounts, // EVMTokenAmount[] tokenAmounts: Token transfers.
+            feeToken: _localNetworkDetails.linkAddress, // address feeToken: Address of feeToken. address(0) means you will send msg.value.
+            extraArgs: Client._argsToBytes(
+                Client.GenericExtraArgsV2({gasLimit: 150_000, allowOutOfOrderExecution: false})
+            ) // bytes extraArgs: Populate this with _argsToBytes(GenericExtraArgsV2).
+        });
+        // get dynamic transfer fee in link token. Fee amount dependant upon cross chain message being sent
+        uint256 fee =
+            IRouterClient(_localNetworkDetails.routerAddress).getFee(_remoteNetworkDetails.chainSelector, message);
+        // mint link token for local tests
+        ccipLocalSimulatorFork.requestLinkFromFaucet(user1, fee);
+        // approve router to take fee in link token and send Rebase Tokens on behalf of user1
+        vm.startPrank(user1);
+        IERC20(_localNetworkDetails.linkAddress).approve(_localNetworkDetails.routerAddress, fee);
+        IERC20(address(_localToken)).approve(_localNetworkDetails.routerAddress, _amountToBridge);
+        // get balances for testing state locally
+        uint256 localBalanceBeforeSend = _localToken.balanceOf(user1);
+        uint256 localUserInterestRate = _localToken.getUserInterestRate(user1);
+        // initiate cross chain transfer from local chain
+        IRouterClient(_localNetworkDetails.routerAddress).ccipSend(_remoteNetworkDetails.chainSelector, message);
+        vm.stopPrank();
+        // test balances after send
+        uint256 localBalanceAfterSend = _localToken.balanceOf(user1);
+        assertEq(localBalanceAfterSend, localBalanceBeforeSend - _amountToBridge);
+
+        // switch to remote chain
+        vm.selectFork(_remoteFork);
+        // advance time to simulate confirmation times for bridges
+        vm.warp(block.timestamp + 20 minutes);
+        uint256 remoteBalanceBeforeSend = _remoteToken.balanceOf(user1);
+
+        // switch back to localFork since ccipLocalSimulator assumes you are on source fork when calling switchChainAndRouteMessage
+        vm.selectFork(_localFork);
+        // finish cross chain transfer to remote chain
+        ccipLocalSimulatorFork.switchChainAndRouteMessage(_remoteFork);
+        // get and verify remote chain state after send
+        uint256 expectedRemoteBalanceAfterSend = remoteBalanceBeforeSend + _amountToBridge;
+        uint256 remoteUserInterestRate = _remoteToken.getUserInterestRate(user1);
+        assertEq(_remoteToken.balanceOf(user1), expectedRemoteBalanceAfterSend);
+        assertEq(remoteUserInterestRate, localUserInterestRate);
+    }
+
+    function testBridgeAllTokens() public {
+        vm.selectFork(sourceFork);
+        vm.deal(user1, SEND_AMOUNT);
+        vm.prank(user1);
+        vault.deposit{value: SEND_AMOUNT}();
+        assertEq(ethSepoliaRbt.balanceOf(user1), SEND_AMOUNT);
+        bridgeTokens(
+            SEND_AMOUNT,
+            sourceFork,
+            destinationFork,
+            sourceNetworkDetails,
+            destinationNetworkDetails,
+            ethSepoliaRbt,
+            arbSepoliaRbt
+        );
+    }
+
+    function testBridgeAllTokensBack() public {
+        vm.selectFork(sourceFork);
+        vm.deal(user1, SEND_AMOUNT);
+        vm.prank(user1);
+        vault.deposit{value: SEND_AMOUNT}();
+        assertEq(ethSepoliaRbt.balanceOf(user1), SEND_AMOUNT);
+        bridgeTokens(
+            SEND_AMOUNT,
+            sourceFork,
+            destinationFork,
+            sourceNetworkDetails,
+            destinationNetworkDetails,
+            ethSepoliaRbt,
+            arbSepoliaRbt
+        );
+        vm.selectFork(destinationFork);
+        vm.warp(block.timestamp + 20 minutes);
+        bridgeTokens(
+            arbSepoliaRbt.balanceOf(user1),
+            destinationFork,
+            sourceFork,
+            destinationNetworkDetails,
+            sourceNetworkDetails,
+            arbSepoliaRbt,
+            ethSepoliaRbt
+        );
+    }
+
+    // function testBridgeTokensTwiceFromSource() public {}
+
+    // function testBridgeTokensTwiceFromDestination() public {}
+
+    // function testBridgePartialTokens() public {}
+
+    // function testBridgeTokensMintsAccruedInterestOnSource() public {}
+
+    // function testBridgeTokensMintsAccruedInterestOnDestination() public {}
 }
