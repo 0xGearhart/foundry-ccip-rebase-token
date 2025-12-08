@@ -1,101 +1,294 @@
 # Foundry CCIP Rebase Token
 
+**⚠️ This is an educational project - not audited, use at your own risk**
 
-# About
-
+## Table of Contents
 
 - [Foundry CCIP Rebase Token](#foundry-ccip-rebase-token)
-- [About](#about)
-- [Getting Started](#getting-started)
-  - [Requirements](#requirements)
-  - [Quickstart](#quickstart)
-- [Usage](#usage)
-  - [Start a local node](#start-a-local-node)
-  - [Deploy - Locally](#deploy---locally)
-  - [Testing](#testing)
-    - [Testing Coverage](#testing-coverage)
-- [Deployment to a testnet or mainnet](#deployment-to-a-testnet-or-mainnet)
-  - [Scripts](#scripts)
-  - [Estimate gas](#estimate-gas)
-- [Project design and assumptions](#project-design-and-assumptions)
-  - [Notes](#notes)
+  - [Table of Contents](#table-of-contents)
+  - [About](#about)
+    - [Key Features](#key-features)
+    - [Architecture](#architecture)
+  - [Getting Started](#getting-started)
+    - [Requirements](#requirements)
+    - [Quickstart](#quickstart)
+    - [Environment Setup](#environment-setup)
+  - [Usage](#usage)
+    - [Build](#build)
+    - [Testing](#testing)
+    - [Test Coverage](#test-coverage)
+    - [Deploy Locally](#deploy-locally)
+    - [Interact with Contract](#interact-with-contract)
+  - [Deployment](#deployment)
+    - [Deploy to Testnet](#deploy-to-testnet)
+    - [Verify Contract](#verify-contract)
+    - [Deployment Addresses](#deployment-addresses)
+  - [Security](#security)
+    - [Audit Status](#audit-status)
+    - [Known Limitations](#known-limitations)
+  - [Gas Optimization](#gas-optimization)
+  - [Contributing](#contributing)
+  - [License](#license)
 
-# Getting Started
+## About
 
-## Requirements
+[1-2 sentence description of what the contract does and its purpose]
 
-- [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+### Key Features
 
-- [foundry](https://getfoundry.sh/)
+- Feature 1
+- Feature 2
+- Feature 3
 
-## Quickstart
+**Tech Stack:**
+- Solidity ^0.8.x
+- Foundry
+- [Other dependencies]
+
+### Architecture
 
 ```
+┌─────────────────────────────────────────────────────────────┐
+│                         Users/EOAs                          │
+└──────────────┬──────────────────────────────┬───────────────┘
+               │                              │
+               │ fund()                       │ withdraw()
+               │                              │ (owner only)
+               ▼                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│                      Main Contract                           │
+│                                                              │
+│  ┌────────────────┐        ┌──────────────────┐              │
+│  │   Funders      │        │   Funding Goals  │              │
+│  │   Tracking     │        │   & Amounts      │              │
+│  └────────────────┘        └──────────────────┘              │
+│                                                              │
+└───────────────────┬──────────────────────────────────────────┘
+                    │
+                    │ getConversionRate()
+                    │
+                    ▼
+          ┌─────────────────────┐
+          │  Chainlink Oracle   │
+          │   Price Feed        │
+          └─────────────────────┘
+```
+
+**Repository Structure:**
+```
+project-name/
+├── src/
+│   ├── MainContract.sol       # Core contract logic
+│   └── PriceConverter.sol     # Helper library (if applicable)
+├── script/
+│   ├── DeployContract.s.sol   # Deployment script
+│   └── Interactions.s.sol     # Interaction scripts
+├── test/
+│   ├── unit/
+│   │   └── ContractTest.t.sol
+│   └── integration/
+│       └── InteractionsTest.t.sol
+└── lib/                        # Dependencies
+```
+
+## Getting Started
+
+### Requirements
+
+- [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+  - Verify installation: `git --version`
+- [foundry](https://getfoundry.sh/)
+  - Verify installation: `forge --version`
+
+### Quickstart
+
+```bash
 git clone https://github.com/0xGearhart/foundry-ccip-rebase-token
 cd foundry-ccip-rebase-token
+make install
 forge build
 ```
 
-# Usage
+### Environment Setup
 
-## Start a local node
+1. **Copy the environment template:**
+   ```bash
+   cp .env.example .env
+   ```
 
+2. **Configure your `.env` file:**
+   ```bash
+   SEPOLIA_RPC_URL=your_sepolia_rpc_url_here
+   MAINNET_RPC_URL=your_mainnet_rpc_url_here
+   PRIVATE_KEY=your_private_key_here
+   ETHERSCAN_API_KEY=your_etherscan_api_key_here
+   ```
+
+3. **Get testnet ETH:**
+   - Sepolia Faucet: [SEPOLIA](https://cloud.google.com/application/web3/faucet/ethereum/sepolia)
+
+**⚠️ Security Warning:**
+- Never commit your `.env` file
+- Never use your mainnet private key for testing
+- Use a separate wallet with only testnet funds
+
+## Usage
+
+### Build
+
+Compile the contracts:
+
+```bash
+forge build
 ```
-make anvil
-```
 
-## Deploy - Locally
+### Testing
 
-This will default to your local node. You need to have it running in another terminal in order for it to deploy.
+Run the test suite:
 
-```
-make deploy
-```
-
-
-## Testing
-
-```
+```bash
 forge test
 ```
 
-### Testing Coverage
+Run tests with verbosity:
 
+```bash
+forge test -vvv
 ```
+
+Run specific test:
+
+```bash
+forge test --match-test testFunctionName
+```
+
+### Test Coverage
+
+Generate coverage report:
+
+```bash
 forge coverage
 ```
 
-# Deployment to a testnet or mainnet
+### Deploy Locally
 
+Start a local Anvil node:
 
-## Scripts
+```bash
+make anvil
+```
 
+Deploy to local node (in another terminal):
 
-## Estimate gas
+```bash
+make deploy
+```
 
+### Interact with Contract
 
-# Project design and assumptions
+[Examples of how to interact with your contract using cast or scripts]
 
+```bash
+# Example command
+cast send <CONTRACT_ADDRESS> "functionName()" --rpc-url $SEPOLIA_RPC_URL --private-key $PRIVATE_KEY
+```
 
-## Notes
+## Deployment
 
-Foundry CCIP Rebase Token
+### Deploy to Testnet
 
-1. A protocol that allows a user to deposit into a vault and in return, receive rebase tokens that represent their underlying balance
-2. Rebase token -> balanceOf function is dynamic. This is needed to show the changing balance over time.
-   - Balance increases linearly with time
-   - Mint tokens to users every time they preform an action (mint, burn, transfer, bridge, etc...)
-3. Interest rate
-   - Individually set interest rate for each user based on some global interest rate for the protocol. This is set by taking a snapshot of the current interest rate at the time of a users deposit into the vault.
-   - This individual interest rate is updated each time the user deposits into the vault.
-   - The global interest rate can only be decreased to incentivize and reward early deposits. However, this also means depositing again at a later time could lower the individual interest rate of the user.
-   - Early users would be best served by making subsequent deposits from different addresses to avoid updating to a lower interest rate.
+Deploy to Sepolia:
 
+```bash
+make deploy ARGS="--network sepolia"
+```
 
-Known Issues
+Or using forge directly:
 
-1. totalSupply function from ERC20 will not include any accrued interest as looping through all users could result in denial of service as the array continues to grow with additional users.
-2. Owner could grant anyone (including themselves) permission to mint and burn which would invalidate access control.
-3. There can be precision loss if amount < 1 wei during interest calculations. This is due to truncation.
-4. The decreasing interest rate system could be exploited in the following way: A user could make a small deposit early to lock in the highest interest rate. Then they could do a much larger deposit later from a new wallet (which would have a lower interest rate since the contract owner will be decreasing the global interest rate over time). If they then transfer the large secondary amount of Rebase Tokens to their first wallet with the higher interest rate, they would get to keep the higher interest rate on their entire balance. This is a known bug and is the result of trade offs between incentivising early deposits vs preventing someone from grieving other accounts by sending dust to their wallets to lower their interest rates. 
-5. Users have the ability to increase their interest growth from linear to compounding by transferring on a consistent basis. This would prevent the users interest rate from decreasing over time since only deposit and redeem change the users interest rate. This would also constantly update the users principal balance to include the accrued interest which in essence allows the user to change their insert rate from linear (based off initial principal deposited), to compounding (where the user begins to accrue insert on their earned interest). The owner and deployer need to take steps to account for this possibility when calculating the amount of rewards needed in the vault contract. Failing to do so could result in denial of service due to insufficient ETH in the vault contract to pay out redemptions.
+```bash
+forge script script/DeployContract.s.sol:DeployContract --rpc-url $SEPOLIA_RPC_URL --private-key $PRIVATE_KEY --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY -vvvv
+```
+
+### Verify Contract
+
+If automatic verification fails:
+
+```bash
+forge verify-contract <CONTRACT_ADDRESS> src/MainContract.sol:MainContract --chain-id 11155111 --etherscan-api-key $ETHERSCAN_API_KEY
+```
+
+### Deployment Addresses
+
+| Network | Contract Address | Explorer |
+|---------|------------------|----------|
+| Sepolia | `TBD` | [View on Etherscan](https://sepolia.etherscan.io) |
+| Mainnet | `TBD` | [View on Etherscan](https://etherscan.io) |
+
+## Security
+
+### Audit Status
+
+⚠️ **This contract has not been audited.** Use at your own risk.
+
+For production use, consider:
+- Professional security audit
+- Bug bounty program
+- Gradual rollout with monitoring
+
+### Known Limitations
+
+- [Limitation 1 - e.g., centralized owner control]
+- [Limitation 2 - e.g., no withdrawal limits]
+- [Limitation 3 - e.g., relies on external oracle]
+
+**Centralization Risks:**
+- [Explain any admin/owner privileges]
+
+**Oracle Dependencies:**
+- [Explain reliance on Chainlink or other oracles]
+
+## Gas Optimization
+
+| Function | Gas Cost |
+|----------|----------|
+| `function1` | ~XXX,XXX |
+| `function2` | ~XXX,XXX |
+| `function3` | ~XXX,XXX |
+
+Generate gas report:
+
+```bash
+forge test --gas-report
+```
+Generate gas snapshot:
+
+```bash
+forge snapshot
+```
+
+Compare gas changes:
+
+```bash
+forge snapshot --diff
+```
+
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+**Disclaimer:** This software is provided "as is", without warranty of any kind. Use at your own risk.
+
+**Built with [Foundry](https://getfoundry.sh/)**
