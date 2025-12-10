@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.24;
 
-import {CodeConstants} from "./HelperConfig.s.sol";
+import {CodeConstants} from "./DeployRBT.s.sol";
 import {IRouterClient} from "@chainlink/contracts-ccip/contracts/interfaces/IRouterClient.sol";
 import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
 import {RateLimiter} from "@chainlink/contracts-ccip/contracts/libraries/RateLimiter.sol";
@@ -55,7 +55,7 @@ contract ConfigurePool is Script, CodeConstants {
         vm.stopBroadcast();
     }
 
-    function _getAccount() internal returns (address) {
+    function _getAccount() internal view returns (address) {
         if (block.chainid == LOCAL_CHAIN_ID) {
             return DEFAULT_SENDER;
         } else {

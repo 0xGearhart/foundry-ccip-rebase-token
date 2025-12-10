@@ -2,8 +2,7 @@
 
 pragma solidity ^0.8.24;
 
-import {DeployRBT} from "../../script/DeployRBT.s.sol";
-import {CodeConstants} from "../../script/HelperConfig.s.sol";
+import {CodeConstants, DeployRBT} from "../../script/DeployRBT.s.sol";
 import {RebaseToken} from "../../src/RebaseToken.sol";
 import {Vault} from "../../src/Vault.sol";
 import {InvalidReceiverMock} from "../mocks/InvalidReceiverMock.sol";

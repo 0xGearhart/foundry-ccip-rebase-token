@@ -2,15 +2,13 @@
 
 pragma solidity ^0.8.24;
 
-import {DeployRBT} from "../../script/DeployRBT.s.sol";
-import {CodeConstants, HelperConfig} from "../../script/HelperConfig.s.sol";
+import {CodeConstants, DeployRBT} from "../../script/DeployRBT.s.sol";
 import {RebaseToken} from "../../src/RebaseToken.sol";
 import {Vault} from "../../src/Vault.sol";
 import {Test, console} from "forge-std/Test.sol";
 
 contract DeployRBTTest is Test, CodeConstants {
     DeployRBT public deployer;
-    HelperConfig public helperConfig;
     RebaseToken public rbt;
     Vault public vault;
 
@@ -20,7 +18,6 @@ contract DeployRBTTest is Test, CodeConstants {
         deployer = new DeployRBT();
         (rbt,,) = deployer.run();
         vault = deployer.deployVault();
-        // (ethUsdPriceFeed, btcUsdPriceFeed, weth, wbtc, account) = helperConfig.activeNetworkConfig();
     }
 
     /*//////////////////////////////////////////////////////////////

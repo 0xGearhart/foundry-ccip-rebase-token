@@ -49,26 +49,7 @@ contract DeployRBT is Script, CodeConstants {
 
         // only needed for fork tests and deployments, ignore for local anvil chain
         if (block.chainid != LOCAL_CHAIN_ID) {
-            // deploy CCIP local simulation contracts to get chain specific network details
-            ccipLocalSimulatorFork = new CCIPLocalSimulatorFork();
-            Register.NetworkDetails memory networkDetails = ccipLocalSimulatorFork.getNetworkDetails(block.chainid);
-            vm.startBroadcast(vm.envAddress("DEFAULT_KEY_ADDRESS"));
-            // deploy RBT Pool contract
-            rbtPool = new RebaseTokenPool(
-                IERC20(address(rbt)),
-                DECIMAL_PRECISION,
-                allowList,
-                networkDetails.rmnProxyAddress,
-                networkDetails.routerAddress
-            );
-            // grant MINT_AND_BURN role to RBT Pool contract
-            rbt.grantMintAndBurnRole(address(rbtPool));
-            // grant appropriate chainlink CCIP admin, permissions, and roles
-            RegistryModuleOwnerCustom(networkDetails.registryModuleOwnerCustomAddress)
-                .registerAdminViaOwner(address(rbt));
-            TokenAdminRegistry(networkDetails.tokenAdminRegistryAddress).acceptAdminRole(address(rbt));
-            TokenAdminRegistry(networkDetails.tokenAdminRegistryAddress).setPool(address(rbt), address(rbtPool));
-            vm.stopBroadcast();
+            (rbtPool, ccipLocalSimulatorFork) = _deployPoolAndConfigureCCIP(rbt);
         }
     }
 
@@ -78,6 +59,31 @@ contract DeployRBT is Script, CodeConstants {
         vault = new Vault(deployedRbt);
         // grant MINT_AND_BURN role to vault contract
         deployedRbt.grantMintAndBurnRole(address(vault));
+        vm.stopBroadcast();
+    }
+
+    function _deployPoolAndConfigureCCIP(RebaseToken rbt)
+        internal
+        returns (RebaseTokenPool rbtPool, CCIPLocalSimulatorFork ccipLocalSimulatorFork)
+    {
+        // deploy CCIP local simulation contracts to get chain specific network details
+        ccipLocalSimulatorFork = new CCIPLocalSimulatorFork();
+        Register.NetworkDetails memory networkDetails = ccipLocalSimulatorFork.getNetworkDetails(block.chainid);
+        vm.startBroadcast(vm.envAddress("DEFAULT_KEY_ADDRESS"));
+        // deploy RBT Pool contract
+        rbtPool = new RebaseTokenPool(
+            IERC20(address(rbt)),
+            DECIMAL_PRECISION,
+            allowList,
+            networkDetails.rmnProxyAddress,
+            networkDetails.routerAddress
+        );
+        // grant MINT_AND_BURN role to RBT Pool contract
+        rbt.grantMintAndBurnRole(address(rbtPool));
+        // grant appropriate chainlink CCIP admin, permissions, and roles
+        RegistryModuleOwnerCustom(networkDetails.registryModuleOwnerCustomAddress).registerAdminViaOwner(address(rbt));
+        TokenAdminRegistry(networkDetails.tokenAdminRegistryAddress).acceptAdminRole(address(rbt));
+        TokenAdminRegistry(networkDetails.tokenAdminRegistryAddress).setPool(address(rbt), address(rbtPool));
         vm.stopBroadcast();
     }
 

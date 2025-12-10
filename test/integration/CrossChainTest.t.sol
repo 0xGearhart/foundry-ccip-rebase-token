@@ -2,9 +2,8 @@
 
 pragma solidity ^0.8.24;
 
-// scripts and deployment
-import {DeployRBT} from "../../script/DeployRBT.s.sol";
-import {CodeConstants} from "../../script/HelperConfig.s.sol";
+// deployment
+import {CodeConstants, DeployRBT} from "../../script/DeployRBT.s.sol";
 
 // contracts to test
 import {RebaseToken} from "../../src/RebaseToken.sol";

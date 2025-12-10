@@ -1,6 +1,6 @@
 -include .env
 
-.PHONY: all test clean deployRBT fund help install snapshot coverageReport format anvil
+.PHONY: all test clean deployRBT fund help install coverageReport snapshot gasReport format anvil
 
 DEFAULT_ANVIL_KEY := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
@@ -21,10 +21,14 @@ build:; forge build
 
 test :; forge test 
 
+# Create test coverage report and save to .txt file
+coverageReport :; forge coverage --report debug > coverage.txt
+
+# Generate Gas Snapshot
 snapshot :; forge snapshot
 
-# Create Test Coverage Report And Save To .txt File
-coverageReport :; forge coverage --report debug > coverage.txt
+# Generate table showing gas cost for each function
+gasReport :; forge test --gas-report
 
 format :; forge fmt
 

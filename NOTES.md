@@ -1,4 +1,9 @@
 # Notes
+TO-DO: 
+1. add interactions script to cross chain tests for coverage
+2. fix Makefile to reflect actual deployment flow
+3. Deploy to sepolia and arb testnets
+4. Fill out README outline and document deployment process
 
 ## Foundry CCIP Rebase Token
 

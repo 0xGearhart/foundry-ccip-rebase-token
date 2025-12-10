@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.24;
 
-import {CodeConstants} from "../../script/HelperConfig.s.sol";
+import {CodeConstants} from "../../script/DeployRBT.s.sol";
 import {Ownable, RebaseToken} from "../../src/RebaseToken.sol";
 import {Vault} from "../../src/Vault.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
