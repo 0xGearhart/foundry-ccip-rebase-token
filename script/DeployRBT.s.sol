@@ -16,9 +16,11 @@ import {IERC20} from "@openzeppelin/contracts@4.8.3/token/ERC20/IERC20.sol";
 import {Script} from "forge-std/Script.sol";
 
 abstract contract CodeConstants {
-    // RBT name and symbol
+    // RBT name
     string public constant RBT_NAME = "Rebase Token";
+    // RBT symbol
     string public constant RBT_SYMBOL = "RBT";
+    //RBT initial interest rate
     uint256 public constant INITIAL_INTEREST_RATE = 5e10;
     // RBT Token Pool Info
     uint8 public constant DECIMAL_PRECISION = 18;
@@ -31,57 +33,56 @@ abstract contract CodeConstants {
 }
 
 contract DeployRBT is Script, CodeConstants {
-    address account;
-
-    function run() external returns (RebaseToken rbt, Vault vault) {
-        if (block.chainid == LOCAL_CHAIN_ID) {
-            account = DEFAULT_SENDER;
-        } else {
-            account = vm.envAddress("DEFAULT_KEY_ADDRESS");
-        }
-        vm.startBroadcast(account);
-        rbt = new RebaseToken(RBT_NAME, RBT_SYMBOL, INITIAL_INTEREST_RATE);
-        vault = new Vault(rbt);
-        rbt.grantMintAndBurnRole(address(vault));
-        vm.stopBroadcast();
-    }
-}
-
-contract DeployRBTv2 is Script, CodeConstants {
-    RebaseToken rbt;
+    RebaseToken deployedRbt;
     address[] allowList; // blank address array for allowlist == anyone can use the bridge
 
     function run()
         external
         returns (RebaseToken rbt, RebaseTokenPool rbtPool, CCIPLocalSimulatorFork ccipLocalSimulatorFork)
     {
-        ccipLocalSimulatorFork = new CCIPLocalSimulatorFork();
-        Register.NetworkDetails memory networkDetails = ccipLocalSimulatorFork.getNetworkDetails(block.chainid);
-
         vm.startBroadcast(_getAccount());
+        // deploy RBT contract
         rbt = new RebaseToken(RBT_NAME, RBT_SYMBOL, INITIAL_INTEREST_RATE);
-        rbtPool = new RebaseTokenPool(
-            IERC20(address(rbt)),
-            DECIMAL_PRECISION,
-            allowList,
-            networkDetails.rmnProxyAddress,
-            networkDetails.routerAddress
-        );
-        rbt.grantMintAndBurnRole(address(rbtPool));
-        RegistryModuleOwnerCustom(networkDetails.registryModuleOwnerCustomAddress).registerAdminViaOwner(address(rbt));
-        TokenAdminRegistry(networkDetails.tokenAdminRegistryAddress).acceptAdminRole(address(rbt));
-        TokenAdminRegistry(networkDetails.tokenAdminRegistryAddress).setPool(address(rbt), address(rbtPool));
         vm.stopBroadcast();
+        // save RBT to storage for vault deployment if needed
+        deployedRbt = rbt;
+
+        // only needed for fork tests and deployments, ignore for local anvil chain
+        if (block.chainid != LOCAL_CHAIN_ID) {
+            // deploy CCIP local simulation contracts to get chain specific network details
+            ccipLocalSimulatorFork = new CCIPLocalSimulatorFork();
+            Register.NetworkDetails memory networkDetails = ccipLocalSimulatorFork.getNetworkDetails(block.chainid);
+            vm.startBroadcast(vm.envAddress("DEFAULT_KEY_ADDRESS"));
+            // deploy RBT Pool contract
+            rbtPool = new RebaseTokenPool(
+                IERC20(address(rbt)),
+                DECIMAL_PRECISION,
+                allowList,
+                networkDetails.rmnProxyAddress,
+                networkDetails.routerAddress
+            );
+            // grant MINT_AND_BURN role to RBT Pool contract
+            rbt.grantMintAndBurnRole(address(rbtPool));
+            // grant appropriate chainlink CCIP admin, permissions, and roles
+            RegistryModuleOwnerCustom(networkDetails.registryModuleOwnerCustomAddress)
+                .registerAdminViaOwner(address(rbt));
+            TokenAdminRegistry(networkDetails.tokenAdminRegistryAddress).acceptAdminRole(address(rbt));
+            TokenAdminRegistry(networkDetails.tokenAdminRegistryAddress).setPool(address(rbt), address(rbtPool));
+            vm.stopBroadcast();
+        }
     }
 
     function deployVault() external returns (Vault vault) {
         vm.startBroadcast(_getAccount());
-        vault = new Vault(rbt);
-        rbt.grantMintAndBurnRole(address(vault));
+        // deploy vault contract
+        vault = new Vault(deployedRbt);
+        // grant MINT_AND_BURN role to vault contract
+        deployedRbt.grantMintAndBurnRole(address(vault));
         vm.stopBroadcast();
     }
 
-    function _getAccount() internal returns (address) {
+    // get address to deploy contracts from
+    function _getAccount() internal view returns (address) {
         if (block.chainid == LOCAL_CHAIN_ID) {
             return DEFAULT_SENDER;
         } else {

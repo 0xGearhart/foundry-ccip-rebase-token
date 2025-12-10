@@ -19,7 +19,6 @@ import {
     RegistryModuleOwnerCustom
 } from "@chainlink/contracts-ccip/contracts/tokenAdminRegistry/RegistryModuleOwnerCustom.sol";
 import {TokenAdminRegistry} from "@chainlink/contracts-ccip/contracts/tokenAdminRegistry/TokenAdminRegistry.sol";
-// import {BurnMintERC677Helper} from "@chainlink/local/src/ccip/BurnMintERC677Helper.sol";
 import {CCIPLocalSimulatorFork, Register} from "@chainlink/local/src/ccip/CCIPLocalSimulatorFork.sol";
 import {IERC20} from "@openzeppelin/contracts@4.8.3/token/ERC20/IERC20.sol";
 import {Test, console} from "forge-std/Test.sol";
@@ -57,58 +56,20 @@ contract CrossChainTest is Test, CodeConstants {
 
         // deploy RBT, RBT Pool and Vault contracts on source chain
         deployer = new DeployRBT();
-        (ethSepoliaRbt, vault) = deployer.run();
+        (ethSepoliaRbt, ethSepoliaRbtPool, ccipLocalSimulatorFork) = deployer.run();
+        vault = deployer.deployVault();
         // deploy CCIP local simulation contracts and make their addresses the same (persistent) across chains
-        ccipLocalSimulatorFork = new CCIPLocalSimulatorFork();
         vm.makePersistent(address(ccipLocalSimulatorFork));
-        // deploy contracts and configure CCIP on ETH Sepolia
-        vm.startPrank(owner);
-        // chainlink CCIP network details for source chain
+        // get chainlink CCIP network details for source chain
         sourceNetworkDetails = ccipLocalSimulatorFork.getNetworkDetails(block.chainid);
-        // ethSepoliaRbt = new RebaseToken(RBT_NAME, RBT_SYMBOL, INITIAL_INTEREST_RATE);
-        // vault = new Vault(ethSepoliaRbt);
-        ethSepoliaRbtPool = new RebaseTokenPool(
-            IERC20(address(ethSepoliaRbt)),
-            DECIMAL_PRECISION,
-            allowList,
-            sourceNetworkDetails.rmnProxyAddress,
-            sourceNetworkDetails.routerAddress
-        );
-        // grant MINT_AND_BURN role to vault and pool
-        ethSepoliaRbt.grantMintAndBurnRole(address(vault));
-        ethSepoliaRbt.grantMintAndBurnRole(address(ethSepoliaRbtPool));
-        // grant appropriate chainlink CCIP admin, permissions, and roles
-        RegistryModuleOwnerCustom(sourceNetworkDetails.registryModuleOwnerCustomAddress)
-            .registerAdminViaOwner(address(ethSepoliaRbt));
-        TokenAdminRegistry(sourceNetworkDetails.tokenAdminRegistryAddress).acceptAdminRole(address(ethSepoliaRbt));
-        TokenAdminRegistry(sourceNetworkDetails.tokenAdminRegistryAddress)
-            .setPool(address(ethSepoliaRbt), address(ethSepoliaRbtPool));
-        vm.stopPrank();
 
         // switch to destination chain fork (arbitrum sepolia)
         vm.selectFork(destinationFork);
-        // deploy contracts and configure CCIP on ARB sepolia
-        vm.startPrank(owner);
-        // chainlink CCIP network details for destination chain
+        // deploy RBT and RBT Pool contracts on ARB sepolia
+        deployer = new DeployRBT();
+        (arbSepoliaRbt, arbSepoliaRbtPool,) = deployer.run();
+        // get chainlink CCIP network details for destination chain
         destinationNetworkDetails = ccipLocalSimulatorFork.getNetworkDetails(block.chainid);
-        // deploy RBT and RBT Pool contracts on destination chain
-        arbSepoliaRbt = new RebaseToken(RBT_NAME, RBT_SYMBOL, INITIAL_INTEREST_RATE);
-        arbSepoliaRbtPool = new RebaseTokenPool(
-            IERC20(address(arbSepoliaRbt)),
-            DECIMAL_PRECISION,
-            allowList,
-            destinationNetworkDetails.rmnProxyAddress,
-            destinationNetworkDetails.routerAddress
-        );
-        // grant MINT_AND_BURN role to pool
-        arbSepoliaRbt.grantMintAndBurnRole(address(arbSepoliaRbtPool));
-        // grant appropriate chainlink CCIP admin, permissions, and roles
-        RegistryModuleOwnerCustom(destinationNetworkDetails.registryModuleOwnerCustomAddress)
-            .registerAdminViaOwner(address(arbSepoliaRbt));
-        TokenAdminRegistry(destinationNetworkDetails.tokenAdminRegistryAddress).acceptAdminRole(address(arbSepoliaRbt));
-        TokenAdminRegistry(destinationNetworkDetails.tokenAdminRegistryAddress)
-            .setPool(address(arbSepoliaRbt), address(arbSepoliaRbtPool));
-        vm.stopPrank();
 
         // configure both pools
         configureTokenPool(

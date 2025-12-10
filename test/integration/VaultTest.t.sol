@@ -31,7 +31,8 @@ contract VaultTest is Test, CodeConstants {
 
     function setUp() external {
         deployer = new DeployRBT();
-        (rbt, vault) = deployer.run();
+        (rbt,,) = deployer.run();
+        vault = deployer.deployVault();
         vm.deal(user1, STARTING_USER_BALANCE);
         vm.deal(user2, STARTING_USER_BALANCE);
         vm.deal(user3, STARTING_USER_BALANCE);

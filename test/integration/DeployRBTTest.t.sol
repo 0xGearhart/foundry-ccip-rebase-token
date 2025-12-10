@@ -18,7 +18,8 @@ contract DeployRBTTest is Test, CodeConstants {
 
     function setUp() external {
         deployer = new DeployRBT();
-        (rbt, vault) = deployer.run();
+        (rbt,,) = deployer.run();
+        vault = deployer.deployVault();
         // (ethUsdPriceFeed, btcUsdPriceFeed, weth, wbtc, account) = helperConfig.activeNetworkConfig();
     }
 
