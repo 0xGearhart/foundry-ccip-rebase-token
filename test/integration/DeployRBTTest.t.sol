@@ -16,8 +16,7 @@ contract DeployRBTTest is Test, CodeConstants {
 
     function setUp() external {
         deployer = new DeployRBT();
-        (rbt,,) = deployer.run();
-        vault = deployer.deployVault();
+        (vault, rbt,,) = deployer.run(true);
     }
 
     /*//////////////////////////////////////////////////////////////

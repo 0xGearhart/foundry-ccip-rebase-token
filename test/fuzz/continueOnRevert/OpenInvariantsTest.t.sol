@@ -16,8 +16,7 @@ contract OpenInvariantsTest is StdInvariant, Test {
 
     function setUp() external {
         deployer = new DeployRBT();
-        (rbt,,) = deployer.run();
-        vault = deployer.deployVault();
+        (vault, rbt,,) = deployer.run(true);
         // handler = new Handler(rbt, vault);
 
         // targetContract(address(handler));

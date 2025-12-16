@@ -53,6 +53,7 @@ contract ConfigurePool is Script, CodeConstants {
         uint64[] memory chainsToRemove;
 
         vm.startBroadcast(vm.envAddress("DEFAULT_KEY_ADDRESS"));
+        // configure pool
         TokenPool(_localPool).applyChainUpdates(chainsToRemove, chainsToAdd);
         vm.stopBroadcast();
     }

@@ -53,8 +53,7 @@ contract CrossChainTest is Test, CodeConstants {
 
         // deploy RBT, RBT Pool and Vault contracts on source chain
         deployer = new DeployRBT();
-        (ethSepoliaRbt, ethSepoliaRbtPool, ccipLocalSimulatorFork) = deployer.run();
-        vault = deployer.deployVault();
+        (vault, ethSepoliaRbt, ethSepoliaRbtPool, ccipLocalSimulatorFork) = deployer.run(true);
         // deploy CCIP local simulation contracts and make their addresses the same (persistent) across chains
         vm.makePersistent(address(ccipLocalSimulatorFork));
         // get chainlink CCIP network details for source chain
@@ -64,7 +63,7 @@ contract CrossChainTest is Test, CodeConstants {
         vm.selectFork(destinationFork);
         // deploy RBT and RBT Pool contracts on ARB sepolia
         deployer = new DeployRBT();
-        (arbSepoliaRbt, arbSepoliaRbtPool,) = deployer.run();
+        (, arbSepoliaRbt, arbSepoliaRbtPool,) = deployer.run(false);
         // get chainlink CCIP network details for destination chain
         destinationNetworkDetails = ccipLocalSimulatorFork.getNetworkDetails(block.chainid);
 
