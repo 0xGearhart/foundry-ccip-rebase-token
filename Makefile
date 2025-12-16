@@ -1,6 +1,6 @@
 -include .env
 
-.PHONY: all test clean deploy deploy2 fund help install snapshot coverageReport format anvil
+.PHONY: all test clean deploy deploySource deploy2 fund help install snapshot coverageReport format anvil
 
 DEFAULT_ANVIL_KEY := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
@@ -36,15 +36,27 @@ anvil :; anvil -m 'test test test test test test test test test test test junk' 
 
 NETWORK_ARGS := --rpc-url http://localhost:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast
 
-ifeq ($(findstring --network sepolia,$(ARGS)),--network sepolia)
-	NETWORK_ARGS := --rpc-url $(SEPOLIA_RPC_URL) --account defaultKey --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
+ifeq ($(findstring --network eth MAINNET,$(ARGS)),--network eth MAINNET)
+	NETWORK_ARGS := --rpc-url $(ETH_MAINNET_RPC_URL) --account defaultKey --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
+endif
+
+ifeq ($(findstring --network eth sepolia,$(ARGS)),--network eth sepolia)
+	NETWORK_ARGS := --rpc-url $(ETH_SEPOLIA_RPC_URL) --account defaultKey --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
+endif
+
+ifeq ($(findstring --network arb MAINNET,$(ARGS)),--network arb MAINNET)
+	NETWORK_ARGS := --rpc-url $(ARB_MAINNET_RPC_URL) --account defaultKey --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
+endif
+
+ifeq ($(findstring --network arb sepolia,$(ARGS)),--network arb sepolia)
+	NETWORK_ARGS := --rpc-url $(ARB_SEPOLIA_RPC_URL) --account defaultKey --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
 endif
 
 deploy:
 	@forge script script/DeployRBT.s.sol:DeployRBT $(NETWORK_ARGS)
 
 # during anvil deployment grantMintAndBurnRole for vault contract is failing, not sure why but acts like it is being called from someone who is not the owner even though it is within the same broadcast. Need to investigate further
-# deploy2:
-# 	@read -p "Deploy? (y/n): " RESPONSE; \
-# 	DEPLOY_FLAG=$$([ "$$RESPONSE" = "y" ] && echo "true" || echo "false"); \
-# 	forge script script/DeployRBT.s.sol:DeployRBT --sig "run(bool)" $$DEPLOY_FLAG $(NETWORK_ARGS)
+deploy2:
+	@read -p "Deploy Vault contract also? (y/n): " RESPONSE; \
+	DEPLOY_FLAG=$$([ "$$RESPONSE" = "y" ] && echo "true" || echo "false"); \
+	forge script script/DeployRBT.s.sol:DeployRBT2 --sig "run(bool)" $$DEPLOY_FLAG $(NETWORK_ARGS)
