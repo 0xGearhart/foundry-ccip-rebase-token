@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 
 // scripts and deployment
 import {CodeConstants, DeployRBT} from "../../script/DeployRBT.s.sol";
-import {ConfigurePool} from "../../script/Interactions.s.sol";
+import {BridgeTokens, ConfigurePool, DepositAndMintRbt} from "../../script/Interactions.s.sol";
 
 // contracts to test
 import {RebaseToken} from "../../src/RebaseToken.sol";
@@ -16,7 +16,7 @@ import {IRouterClient} from "@chainlink/contracts-ccip/contracts/interfaces/IRou
 import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
 import {CCIPLocalSimulatorFork, Register} from "@chainlink/local/src/ccip/CCIPLocalSimulatorFork.sol";
 import {IERC20} from "@openzeppelin/contracts@4.8.3/token/ERC20/IERC20.sol";
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 
 contract CrossChainTest is Test, CodeConstants {
     CCIPLocalSimulatorFork ccipLocalSimulatorFork;
@@ -68,13 +68,7 @@ contract CrossChainTest is Test, CodeConstants {
             address(arbSepoliaRbtPool),
             sourceNetworkDetails.chainSelector,
             address(ethSepoliaRbtPool),
-            address(ethSepoliaRbt),
-            false,
-            0,
-            0,
-            false,
-            0,
-            0
+            address(ethSepoliaRbt)
         );
 
         // switch back to eth sepolia chain
@@ -85,13 +79,7 @@ contract CrossChainTest is Test, CodeConstants {
             address(ethSepoliaRbtPool),
             destinationNetworkDetails.chainSelector,
             address(arbSepoliaRbtPool),
-            address(arbSepoliaRbt),
-            false,
-            0,
-            0,
-            false,
-            0,
-            0
+            address(arbSepoliaRbt)
         );
     }
 
@@ -202,9 +190,45 @@ contract CrossChainTest is Test, CodeConstants {
         );
     }
 
-    // function testBridgeTokensTwiceFromSource() public {}
+    function testBridgeTokensScript() public {
+        vm.selectFork(sourceFork);
+        vm.deal(owner, SEND_AMOUNT);
+        vm.prank(owner);
+        vault.deposit{value: SEND_AMOUNT}();
+        uint256 ownerInterestRateSource = ethSepoliaRbt.getUserInterestRate(owner);
+        assertEq(ownerInterestRateSource, ethSepoliaRbt.getGlobalInterestRate());
+        assertEq(ethSepoliaRbt.balanceOf(owner), SEND_AMOUNT);
+        BridgeTokens bridgeTokensScript = new BridgeTokens();
+        uint256 excessivelyHighGasLimitForForkedEnvironment = 150_000;
+        console.log("link", sourceNetworkDetails.linkAddress);
+        console.log("router", sourceNetworkDetails.routerAddress);
+        console.log("link", destinationNetworkDetails.chainSelector);
+        bridgeTokensScript.run(
+            owner,
+            address(ethSepoliaRbt),
+            SEND_AMOUNT,
+            destinationNetworkDetails.chainSelector,
+            sourceNetworkDetails.routerAddress,
+            sourceNetworkDetails.linkAddress,
+            excessivelyHighGasLimitForForkedEnvironment
+        );
+        assertEq(ethSepoliaRbt.balanceOf(owner), 0);
+        // finish cross chain transfer to destination chain
+        ccipLocalSimulatorFork.switchChainAndRouteMessage(destinationFork);
 
-    // function testBridgeTokensTwiceFromDestination() public {}
+        // verify destination chain state
+        assertEq(arbSepoliaRbt.balanceOf(owner), SEND_AMOUNT);
+        assertEq(ownerInterestRateSource, arbSepoliaRbt.getUserInterestRate(owner));
+    }
+
+    function testDepositAndMintRbtScript() public {
+        vm.selectFork(sourceFork);
+        assertEq(ethSepoliaRbt.balanceOf(owner), 0);
+        uint256 mintAmount = 1e15;
+        DepositAndMintRbt depositAndMintRbt = new DepositAndMintRbt();
+        depositAndMintRbt.run(payable(address(vault)), mintAmount);
+        assertEq(ethSepoliaRbt.balanceOf(owner), mintAmount);
+    }
 
     // function testBridgePartialTokens() public {}
 
