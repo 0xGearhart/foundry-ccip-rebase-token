@@ -1,6 +1,6 @@
 # Foundry CCIP Rebase Token
 
-**⚠️ This is an educational project - not audited, use at your own risk**
+**⚠️ This project is not audited, use at your own risk**
 
 ## Table of Contents
 
